@@ -1,0 +1,49 @@
+import reactor.core.publisher.Mono;
+import reactor.core.scheduler.Schedulers;
+
+class RequestObject {
+    private String name;
+    // Getters and setters
+}
+
+class ResponseObject {
+    private String name;
+    private int time;
+    private boolean errorFlg;
+    private Object resultData;
+    // Getters and setters
+}
+
+@Service
+public class MyService {
+
+    // サンプルデータ取得メソッド（実際の実装ではデータベースや他のサービスから取得）
+    private Mono<ResponseObject> getObjectByName(String name) {
+        return Mono.fromCallable(() -> {
+            // ここにデータ取得のロジックを記述
+            ResponseObject responseObject = new ResponseObject();
+            responseObject.setName(name);
+            responseObject.setTime(5); // サンプルで5秒待機するように設定
+            responseObject.setErrorFlg(false);
+            responseObject.setResultData(new Object()); // サンプルデータ
+            return responseObject;
+        });
+    }
+
+    // メイン処理メソッド
+    public Mono<ResponseObject> processRequest(RequestObject request) {
+        return getObjectByName(request.getName())
+                .flatMap(responseObject -> {
+                    // "time"秒待機
+                    return Mono.delay(Duration.ofSeconds(responseObject.getTime()))
+                            .then(Mono.fromCallable(() -> {
+                                // "errorFlg"がtrueの場合は"resultData"をnullに設定
+                                if (responseObject.isErrorFlg()) {
+                                    responseObject.setResultData(null);
+                                }
+                                return responseObject;
+                            }))
+                            .subscribeOn(Schedulers.parallel()); // 別スレッドで実行
+                });
+    }
+}
