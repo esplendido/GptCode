@@ -1,13 +1,20 @@
-import java.lang.reflect.Field;
-import java.lang.reflect.Modifier;
+package com.example.deepcopy;
+
+import org.springframework.beans.BeanUtils;
+import org.springframework.stereotype.Component;
+
+import java.beans.PropertyDescriptor;
+import java.lang.reflect.InvocationTargetException;
+import java.lang.reflect.Method;
 import java.util.Collection;
 import java.util.HashSet;
 import java.util.Map;
 import java.util.Set;
 
+@Component
 public class DeepCopyUtil {
 
-    public static void copyProperties(Object source, Object target) throws IllegalAccessException, InstantiationException {
+    public void copyProperties(Object source, Object target) {
         if (source == null || target == null) {
             return;
         }
@@ -16,10 +23,15 @@ public class DeepCopyUtil {
         }
 
         Set<Object> visited = new HashSet<>();
-        copyPropertiesRecursive(source, target, visited);
+        try {
+            copyPropertiesRecursive(source, target, visited);
+        } catch (IllegalAccessException | InstantiationException | InvocationTargetException e) {
+            throw new RuntimeException("Error during properties copy", e);
+        }
     }
 
-    private static void copyPropertiesRecursive(Object source, Object target, Set<Object> visited) throws IllegalAccessException, InstantiationException {
+    private void copyPropertiesRecursive(Object source, Object target, Set<Object> visited)
+            throws IllegalAccessException, InstantiationException, InvocationTargetException {
         if (source == null || target == null) {
             return;
         }
@@ -28,46 +40,54 @@ public class DeepCopyUtil {
         }
         visited.add(source);
 
-        Field[] fields = source.getClass().getDeclaredFields();
-        for (Field field : fields) {
-            if (Modifier.isStatic(field.getModifiers()) || Modifier.isFinal(field.getModifiers())) {
+        PropertyDescriptor[] propertyDescriptors = BeanUtils.getPropertyDescriptors(source.getClass());
+        for (PropertyDescriptor propertyDescriptor : propertyDescriptors) {
+            Method readMethod = propertyDescriptor.getReadMethod();
+            Method writeMethod = propertyDescriptor.getWriteMethod();
+            if (readMethod == null || writeMethod == null) {
                 continue;
             }
-            field.setAccessible(true);
 
-            Object sourceValue = field.get(source);
-            Object targetValue = field.get(target);
-
+            Object sourceValue = readMethod.invoke(source);
             if (sourceValue == null) {
-                if (field.isAnnotationPresent(UpdateNull.class)) {
-                    field.set(target, null);
+                if (propertyDescriptor.getWriteMethod().getAnnotation(UpdateNull.class) != null) {
+                    writeMethod.invoke(target, (Object) null);
                 }
             } else {
                 if (isPrimitiveOrWrapper(sourceValue.getClass()) || sourceValue instanceof String) {
-                    field.set(target, sourceValue);
+                    writeMethod.invoke(target, sourceValue);
                 } else {
                     if (sourceValue instanceof Collection) {
                         Collection<?> sourceCollection = (Collection<?>) sourceValue;
-                        Collection<Object> targetCollection = (Collection<Object>) field.getType().newInstance();
+                        Collection<Object> targetCollection = (Collection<Object>) sourceCollection.getClass().newInstance();
                         for (Object item : sourceCollection) {
                             Object newItem = item.getClass().newInstance();
                             copyPropertiesRecursive(item, newItem, visited);
                             targetCollection.add(newItem);
                         }
-                        field.set(target, targetCollection);
+                        writeMethod.invoke(target, targetCollection);
                     } else if (sourceValue instanceof Map) {
-                        // Handle Map type if needed
+                        Map<?, ?> sourceMap = (Map<?, ?>) sourceValue;
+                        Map<Object, Object> targetMap = (Map<Object, Object>) sourceMap.getClass().newInstance();
+                        for (Map.Entry<?, ?> entry : sourceMap.entrySet()) {
+                            Object newKey = entry.getKey().getClass().newInstance();
+                            Object newValue = entry.getValue().getClass().newInstance();
+                            copyPropertiesRecursive(entry.getKey(), newKey, visited);
+                            copyPropertiesRecursive(entry.getValue(), newValue, visited);
+                            targetMap.put(newKey, newValue);
+                        }
+                        writeMethod.invoke(target, targetMap);
                     } else {
                         Object newValue = sourceValue.getClass().newInstance();
                         copyPropertiesRecursive(sourceValue, newValue, visited);
-                        field.set(target, newValue);
+                        writeMethod.invoke(target, newValue);
                     }
                 }
             }
         }
     }
 
-    private static boolean isPrimitiveOrWrapper(Class<?> type) {
+    private boolean isPrimitiveOrWrapper(Class<?> type) {
         return type.isPrimitive() ||
                type == Boolean.class || type == Integer.class || type == Character.class ||
                type == Byte.class || type == Short.class || type == Double.class ||
