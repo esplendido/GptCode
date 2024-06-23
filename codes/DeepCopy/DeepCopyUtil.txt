@@ -1,0 +1,76 @@
+import java.lang.reflect.Field;
+import java.lang.reflect.Modifier;
+import java.util.Collection;
+import java.util.HashSet;
+import java.util.Map;
+import java.util.Set;
+
+public class DeepCopyUtil {
+
+    public static void copyProperties(Object source, Object target) throws IllegalAccessException, InstantiationException {
+        if (source == null || target == null) {
+            return;
+        }
+        if (!source.getClass().equals(target.getClass())) {
+            throw new IllegalArgumentException("Source and target must be of the same type");
+        }
+
+        Set<Object> visited = new HashSet<>();
+        copyPropertiesRecursive(source, target, visited);
+    }
+
+    private static void copyPropertiesRecursive(Object source, Object target, Set<Object> visited) throws IllegalAccessException, InstantiationException {
+        if (source == null || target == null) {
+            return;
+        }
+        if (visited.contains(source)) {
+            return; // Prevent infinite loops in case of circular references
+        }
+        visited.add(source);
+
+        Field[] fields = source.getClass().getDeclaredFields();
+        for (Field field : fields) {
+            if (Modifier.isStatic(field.getModifiers()) || Modifier.isFinal(field.getModifiers())) {
+                continue;
+            }
+            field.setAccessible(true);
+
+            Object sourceValue = field.get(source);
+            Object targetValue = field.get(target);
+
+            if (sourceValue == null) {
+                if (field.isAnnotationPresent(UpdateNull.class)) {
+                    field.set(target, null);
+                }
+            } else {
+                if (isPrimitiveOrWrapper(sourceValue.getClass()) || sourceValue instanceof String) {
+                    field.set(target, sourceValue);
+                } else {
+                    if (sourceValue instanceof Collection) {
+                        Collection<?> sourceCollection = (Collection<?>) sourceValue;
+                        Collection<Object> targetCollection = (Collection<Object>) field.getType().newInstance();
+                        for (Object item : sourceCollection) {
+                            Object newItem = item.getClass().newInstance();
+                            copyPropertiesRecursive(item, newItem, visited);
+                            targetCollection.add(newItem);
+                        }
+                        field.set(target, targetCollection);
+                    } else if (sourceValue instanceof Map) {
+                        // Handle Map type if needed
+                    } else {
+                        Object newValue = sourceValue.getClass().newInstance();
+                        copyPropertiesRecursive(sourceValue, newValue, visited);
+                        field.set(target, newValue);
+                    }
+                }
+            }
+        }
+    }
+
+    private static boolean isPrimitiveOrWrapper(Class<?> type) {
+        return type.isPrimitive() ||
+               type == Boolean.class || type == Integer.class || type == Character.class ||
+               type == Byte.class || type == Short.class || type == Double.class ||
+               type == Long.class || type == Float.class;
+    }
+}

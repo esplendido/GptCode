@@ -1,0 +1,48 @@
+import java.util.List;
+
+public class Person {
+    private String name;
+    private int age;
+    private Address address;
+    @UpdateNull
+    private String nullableField;
+
+    // getters and setters
+}
+
+public class Address {
+    private String street;
+    private String city;
+    
+    // getters and setters
+}
+
+public class Main {
+    public static void main(String[] args) throws IllegalAccessException, InstantiationException {
+        Person source = new Person();
+        source.setName("John Doe");
+        source.setAge(30);
+        Address address = new Address();
+        address.setStreet("123 Main St");
+        address.setCity("Anytown");
+        source.setAddress(address);
+        source.setNullableField(null);
+
+        Person target = new Person();
+        target.setName("Jane Doe");
+        target.setAge(25);
+        Address targetAddress = new Address();
+        targetAddress.setStreet("456 Side St");
+        targetAddress.setCity("Othertown");
+        target.setAddress(targetAddress);
+        target.setNullableField("Not null");
+
+        DeepCopyUtil.copyProperties(source, target);
+
+        System.out.println("Target Name: " + target.getName());
+        System.out.println("Target Age: " + target.getAge());
+        System.out.println("Target Address Street: " + target.getAddress().getStreet());
+        System.out.println("Target Address City: " + target.getAddress().getCity());
+        System.out.println("Target Nullable Field: " + target.getNullableField());
+    }
+}
