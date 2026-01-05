@@ -139,6 +139,98 @@ $("#btnOutput").on("click", () => {
 });
 
 
+//① ツリー → 表形式に変換するロジック（核心）
+function flatten(node, parentId = null, order = 1, nodes = [], details = []) {
+
+  // CONDITION_NODE 行
+  nodes.push({
+    node_id: node.id,
+    parent_node_id: parentId,
+    node_type: node.type,
+    logical_op: node.type === "GROUP" ? node.logicalOp : null,
+    sort_order: order
+  });
+
+  // CONDITION_DETAIL 行
+  if (node.type === "CONDITION") {
+    details.push({
+      node_id: node.id,
+      field: node.field,
+      operator: node.operator,
+      value: node.value
+    });
+  }
+
+  // 子を再帰処理
+  if (node.children) {
+    node.children.forEach((child, idx) => {
+      flatten(child, node.id, idx + 1, nodes, details);
+    });
+  }
+
+  return { nodes, details };
+}
+
+
+<h5 class="mt-4">CONDITION_NODE</h5>
+<table class="table table-sm table-bordered">
+  <thead>
+    <tr>
+      <th>node_id</th>
+      <th>parent_node_id</th>
+      <th>node_type</th>
+      <th>logical_op</th>
+      <th>sort_order</th>
+    </tr>
+  </thead>
+  <tbody id="nodeTable"></tbody>
+</table>
+
+<h5 class="mt-4">CONDITION_DETAIL</h5>
+<table class="table table-sm table-bordered">
+  <thead>
+    <tr>
+      <th>node_id</th>
+      <th>field</th>
+      <th>operator</th>
+      <th>value</th>
+    </tr>
+  </thead>
+  <tbody id="detailTable"></tbody>
+</table>
+
+
+
+$("#btnOutput").on("click", () => {
+  const result = flatten(root);
+
+  // CONDITION_NODE
+  $("#nodeTable").empty();
+  result.nodes.forEach(n => {
+    $("#nodeTable").append(`
+      <tr>
+        <td>${n.node_id}</td>
+        <td>${n.parent_node_id ?? ""}</td>
+        <td>${n.node_type}</td>
+        <td>${n.logical_op ?? ""}</td>
+        <td>${n.sort_order}</td>
+      </tr>
+    `);
+  });
+
+  // CONDITION_DETAIL
+  $("#detailTable").empty();
+  result.details.forEach(d => {
+    $("#detailTable").append(`
+      <tr>
+        <td>${d.node_id}</td>
+        <td>${d.field}</td>
+        <td>${d.operator}</td>
+        <td>${d.value}</td>
+      </tr>
+    `);
+  });
+});
 
 
 
