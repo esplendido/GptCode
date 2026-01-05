@@ -24,92 +24,89 @@ function newCondition() {
   };
 }
 
+.group-box {
+  border: 2px solid #6c757d;
+  border-radius: 6px;
+  padding: 8px;
+  margin-top: 8px;
+  position: relative;
+}
 
-function render(node, $container) {
+.group-level-0 { background-color: #f8f9fa; }
+.group-level-1 { background-color: #eef5ff; }
+.group-level-2 { background-color: #e6fffa; }
+.group-level-3 { background-color: #fff4e6; }
 
-  // ===== GROUP =====
+/* 子グループのインデント */
+.group-box .children {
+  margin-left: 24px;
+  padding-left: 12px;
+  border-left: 3px dashed #adb5bd;
+}
+
+function render(node, level = 0) {
   if (node.type === "GROUP") {
-    const $group = $(`
-      <div class="group-box">
-        <div class="d-flex align-items-center mb-2">
-          <select class="form-select form-select-sm w-auto me-2">
-            <option value="AND">AND</option>
-            <option value="OR">OR</option>
-          </select>
-
-          <button class="btn btn-sm btn-outline-primary me-1">+ 条件</button>
-          <button class="btn btn-sm btn-outline-secondary me-1">+ グループ</button>
-          <button class="btn btn-sm btn-outline-danger">削除</button>
-        </div>
-        <div class="children"></div>
-      </div>
-    `);
-
-    $group.find("select").val(node.logicalOp)
-      .on("change", function () {
-        node.logicalOp = this.value;
-      });
-
-    // 条件追加
-    $group.find(".btn-outline-primary").on("click", () => {
-      node.children.push(newCondition());
-      refresh();
-    });
-
-    // グループ追加
-    $group.find(".btn-outline-secondary").on("click", () => {
-      node.children.push(newGroup());
-      refresh();
-    });
-
-    // 削除（root以外）
-    $group.find(".btn-outline-danger").on("click", () => {
-      removeNode(root, node.id);
-      refresh();
-    });
-
-    // 子ノード再帰描画
-    node.children.forEach(child => {
-      render(child, $group.find(".children"));
-    });
-
-    $container.append($group);
+    renderGroup(node, level);
+  } else {
+    renderCondition(node);
   }
+}
 
-  // ===== CONDITION =====
-  if (node.type === "CONDITION") {
-    const $cond = $(`
-      <div class="condition-row d-flex align-items-center">
-        <input class="form-control form-control-sm me-1 w-25" placeholder="field">
-        <select class="form-select form-select-sm me-1 w-auto">
-          <option>=</option>
-          <option>!=</option>
-          <option>></option>
-          <option><</option>
-          <option>>=</option>
-          <option><=</option>
+function renderGroup(node, level) {
+  const $group = $(`
+    <div class="group-box group-level-${Math.min(level, 3)}">
+      <div class="d-flex align-items-center gap-1 mb-2">
+        <span class="badge bg-secondary">GROUP</span>
+
+        <input class="form-control form-control-sm w-25"
+               placeholder="node_id">
+
+        <select class="form-select form-select-sm w-auto">
+          <option value="AND">AND</option>
+          <option value="OR">OR</option>
         </select>
-        <input class="form-control form-control-sm me-1 w-25" placeholder="value">
-        <button class="btn btn-sm btn-outline-danger">×</button>
+
+        <button class="btn btn-sm btn-outline-primary">+ 条件</button>
+        <button class="btn btn-sm btn-outline-secondary">+ グループ</button>
+        <button class="btn btn-sm btn-outline-danger">削除</button>
       </div>
-    `);
 
-    $cond.find("input:eq(0)").val(node.field)
-      .on("input", e => node.field = e.target.value);
+      <div class="children"></div>
+    </div>
+  `);
 
-    $cond.find("select").val(node.operator)
-      .on("change", e => node.operator = e.target.value);
+  $group.find("input").val(node.id);
+  $group.find("select").val(node.logicalOp);
 
-    $cond.find("input:eq(1)").val(node.value)
-      .on("input", e => node.value = e.target.value);
+  const $children = $group.find(".children");
 
-    $cond.find("button").on("click", () => {
-      removeNode(root, node.id);
-      refresh();
-    });
+  node.children.forEach(child => {
+    $children.append(render(child, level + 1));
+  });
 
-    $container.append($cond);
-  }
+  return $group;
+}
+
+.condition-row {
+  margin-left: 8px;
+  padding: 4px;
+  border-left: 3px solid #ced4da;
+}
+
+function renderCondition(node) {
+  return $(`
+    <div class="condition-row d-flex align-items-center gap-1">
+      <span class="badge bg-info">COND</span>
+      <input class="form-control form-control-sm w-25" value="${node.id}">
+      <input class="form-control form-control-sm w-25" value="${node.field}">
+      <select class="form-select form-select-sm w-auto">
+        <option ${node.operator === "=" ? "selected" : ""}>=</option>
+        <option ${node.operator === "IN" ? "selected" : ""}>IN</option>
+      </select>
+      <input class="form-control form-control-sm w-25" value="${node.value}">
+      <button class="btn btn-sm btn-outline-danger">×</button>
+    </div>
+  `);
 }
 
 
