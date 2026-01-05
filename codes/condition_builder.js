@@ -276,3 +276,62 @@ function validateNode(node) {
   }
 }
 
+//sqlライクの文字列生成
+<button id="btnSql" class="btn btn-success mt-3">
+  SQLライク文字列出力
+</button>
+
+<pre id="sqlOutput" class="mt-3"></pre>
+
+
+function buildSql(node) {
+
+  // ===== CONDITION =====
+  if (node.type === "CONDITION") {
+    return buildConditionSql(node);
+  }
+
+  // ===== GROUP =====
+  const parts = node.children
+    .map(child => buildSql(child))
+    .filter(s => s && s.length > 0);
+
+  if (parts.length === 0) return "";
+
+  return "(" + parts.join(` ${node.logicalOp} `) + ")";
+}
+
+function buildConditionSql(c) {
+  if (!c.field || !c.operator) return "";
+
+  switch (c.operator) {
+    case "IS NULL":
+    case "IS NOT NULL":
+      return `${c.field} ${c.operator}`;
+
+    default:
+      return `${c.field} ${c.operator} ${formatValue(c.value)}`;
+  }
+}
+
+function formatValue(v) {
+  if (v === null || v === undefined || v === "") {
+    return "NULL";
+  }
+
+  // 数値っぽい場合
+  if (!isNaN(v)) {
+    return v;
+  }
+
+  // 文字列
+  return `'${String(v).replace(/'/g, "''")}'`;
+}
+
+$("#btnSql").on("click", () => {
+  const sql = buildSql(root);
+  $("#sqlOutput").text(sql ? "WHERE " + sql : "");
+});
+
+
+
