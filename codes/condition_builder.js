@@ -234,4 +234,45 @@ $("#btnOutput").on("click", () => {
 
 
 
+<h5 class="mt-4">JSON読み込み</h5>
+
+<textarea id="jsonInput" class="form-control" rows="8"
+  placeholder="ここに条件JSONを貼り付けてください"></textarea>
+
+<button id="btnLoadJson" class="btn btn-secondary mt-2">
+  JSON読み込み
+</button>
+
+$("#btnLoadJson").on("click", () => {
+  try {
+    const jsonText = $("#jsonInput").val();
+    const obj = JSON.parse(jsonText);
+
+    validateNode(obj);   // 構造チェック
+    root = obj;          // 置き換え
+    refresh();           // UI再描画
+
+  } catch (e) {
+    alert("JSONの形式が不正です\n" + e.message);
+  }
+});
+
+function validateNode(node) {
+  if (!node.type || !node.id) {
+    throw new Error("type または id がありません");
+  }
+
+  if (node.type === "GROUP") {
+    if (!node.logicalOp || !Array.isArray(node.children)) {
+      throw new Error("GROUPの構造が不正です");
+    }
+    node.children.forEach(validateNode);
+  }
+
+  if (node.type === "CONDITION") {
+    if (!node.field || !node.operator) {
+      throw new Error("CONDITIONの構造が不正です");
+    }
+  }
+}
 
